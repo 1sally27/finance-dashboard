@@ -443,73 +443,19 @@ function calcInterior(sqm) { return sqm*150; }
 // ══════════════════════════════════════════════
 // SHEET API
 // ══════════════════════════════════════════════
-// ── JSONP GET — 읽기용 ──────────────────────────────────────
-function jsonpCall(params) {
-  return new Promise((resolve, reject) => {
-    if (!SCRIPT_URL) { resolve(null); return; }
-    const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const timer  = setTimeout(() => {
-      delete window[cbName]; script.remove();
-      reject(new Error('timeout'));
-    }, 15000);
-    window[cbName] = function(data) {
-      clearTimeout(timer); delete window[cbName]; script.remove();
-      resolve(data);
-    };
-    const qs = Object.entries({...params, callback: cbName, t: Date.now()})
-      .map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
-    const script = document.createElement('script');
-    script.src = SCRIPT_URL + '?' + qs;
-    script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); reject(new Error('load error')); };
-    document.head.appendChild(script);
-  });
+// ── API: 읽기/쓰기 (예전 진료기록과 동일한 방식) ──────────────
+async function sheetGet() {
+  if (!SCRIPT_URL) return null;
+  const res = await fetch(SCRIPT_URL + '?action=load');
+  return res.json();
 }
 
-function sheetGet() {
-  return jsonpCall({ action: 'load' });
-}
-
-// ── iframe form POST — 쓰기용 (CORS 우회, 데이터 길이 제한 없음) ──
-function sheetPost(type, data) {
-  return new Promise((resolve) => {
-    if (!SCRIPT_URL) { resolve(); return; }
-    // 숨김 iframe 생성
-    const iframeName = 'postframe_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeName;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    // 숨김 form 생성
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = SCRIPT_URL;
-    form.target = iframeName;
-    form.style.display = 'none';
-
-    // type 필드
-    const typeInput = document.createElement('input');
-    typeInput.type = 'hidden';
-    typeInput.name = 'type';
-    typeInput.value = type;
-    form.appendChild(typeInput);
-
-    // data 필드
-    const dataInput = document.createElement('input');
-    dataInput.type = 'hidden';
-    dataInput.name = 'data';
-    dataInput.value = JSON.stringify(data);
-    form.appendChild(dataInput);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // 3초 후 정리 (응답 기다릴 필요 없음)
-    setTimeout(() => {
-      iframe.remove();
-      form.remove();
-      resolve();
-    }, 3000);
+async function sheetPost(type, data) {
+  if (!SCRIPT_URL) return;
+  await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, data }),
   });
 }
 
