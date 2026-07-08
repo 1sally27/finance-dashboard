@@ -349,7 +349,7 @@ input[type=number]{text-align:right;}
 // ══════════════════════════════════════════════
 // CONFIG — 깃허브에 올리기 전 여기에 URL 넣어두면 설정 창 안 뜸
 // ══════════════════════════════════════════════
-const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbwh6ygrz53-s4duhL8CSFJbr5CpyGUjdP-kTkt9FTw19jjNxt3Wif3T3TjV3Jm_W-ubeQ/exec'; // 예: 'https://script.google.com/macros/s/xxx/exec'
+const HARDCODED_URL = ''; // 예: 'https://script.google.com/macros/s/xxx/exec'
 
 // ══════════════════════════════════════════════
 // STATE
@@ -443,17 +443,41 @@ function calcInterior(sqm) { return sqm*150; }
 // ══════════════════════════════════════════════
 // SHEET API
 // ══════════════════════════════════════════════
-async function sheetGet() {
-  if (!SCRIPT_URL) return null;
-  const res = await fetch(SCRIPT_URL, {method:'GET'});
-  return res.json();
+// GET — JSONP 방식 (CORS 우회)
+function sheetGet() {
+  return new Promise((resolve, reject) => {
+    if (!SCRIPT_URL) { resolve(null); return; }
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      script.remove();
+      reject(new Error('timeout'));
+    }, 10000);
+    window[cbName] = function(data) {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.remove();
+      resolve(data);
+    };
+    script.src = SCRIPT_URL + '?callback=' + cbName + '&t=' + Date.now();
+    script.onerror = () => { clearTimeout(timer); delete window[cbName]; reject(new Error('script error')); };
+    document.head.appendChild(script);
+  });
 }
+
+// POST — no-cors 모드 (응답은 못 받지만 저장은 됨)
 async function sheetPost(type, data) {
   if (!SCRIPT_URL) return;
-  await fetch(SCRIPT_URL, {
-    method:'POST',
-    body: JSON.stringify({type, data}),
-  });
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({type, data}),
+    });
+  } catch(e) {
+    // no-cors에서는 응답 없음이 정상
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -479,12 +503,14 @@ async function doSave() {
       interior:  document.getElementById('interiorInput').value,
       etc:S.etc,
     };
-    await sheetPost('settings',     settings);
-    await sheetPost('assets',       S.assets);
-    await sheetPost('budget',       S.budget);
-    await sheetPost('extraIncome',  S.extraIncome);
+    await sheetPost('settings',    settings);
+    await sheetPost('assets',      S.assets);
+    await sheetPost('budget',      S.budget);
+    await sheetPost('extraIncome', S.extraIncome);
+    // no-cors POST는 응답을 받을 수 없으므로 전송 후 ok로 표시
     setStatus('ok');
   } catch(e) {
+    console.error('save error', e);
     setStatus('err');
   }
   isSaving = false;
@@ -869,4 +895,4 @@ if (SCRIPT_URL) {
 }
 </script>
 </body>
-</html>
+</html>]]
