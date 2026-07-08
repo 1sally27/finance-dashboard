@@ -349,7 +349,7 @@ input[type=number]{text-align:right;}
 // ══════════════════════════════════════════════
 // CONFIG — 깃허브에 올리기 전 여기에 URL 넣어두면 설정 창 안 뜸
 // ══════════════════════════════════════════════
-const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbzNWCnzC_vjPCCsBAwaYimbqgbELGWTLMyFt0SLEkUl4wYW7Mox7vmyYB8BcAXg1lCCCA/exec'; // 예: 'https://script.google.com/macros/s/xxx/exec'
+const HARDCODED_URL = ''; // 예: 'https://script.google.com/macros/s/xxx/exec'
 
 // ══════════════════════════════════════════════
 // STATE
@@ -443,10 +443,10 @@ function calcInterior(sqm) { return sqm*150; }
 // ══════════════════════════════════════════════
 // SHEET API
 // ══════════════════════════════════════════════
-// ── API: 읽기/쓰기 (예전 진료기록과 동일한 방식) ──────────────
+// ── API: 읽기/쓰기 ──────────────────────────────────────────
 async function sheetGet() {
   if (!SCRIPT_URL) return null;
-  const res = await fetch(SCRIPT_URL + '?action=load');
+  const res = await fetch(SCRIPT_URL + '?action=load', {redirect: 'follow'});
   return res.json();
 }
 
@@ -454,7 +454,7 @@ async function sheetPost(type, data) {
   if (!SCRIPT_URL) return;
   await fetch(SCRIPT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    redirect: 'follow',
     body: JSON.stringify({ type, data }),
   });
 }
